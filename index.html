@@ -49,7 +49,7 @@
         }
         textarea {
             width: 100%;
-            height: 250px;
+            height: 280px;
             font-family: monospace;
             padding: 10px;
             box-sizing: border-box;
@@ -121,7 +121,7 @@
         <h1>Set Up</h1>
         <hr>
         <p>Enter instruction lines in the format: <code>O;S;D;U</code></p>
-        <textarea id="apiConfigInput" placeholder="海韻花園;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/..."></textarea>
+        <textarea id="apiConfigInput" placeholder="海韻;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/..."></textarea>
         
         <div id="validationError" class="error-msg"></div>
 
@@ -139,16 +139,17 @@
         let countdownInterval = null;
         let secondsRemaining = REFRESH_INTERVAL;
 
-        // Default initial data set
+        // Default set of API instructions
         const defaultInstructions = 
-`海韻花園;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/234A/1
-海韻花園;荃灣;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/234B/1
-海韻花園;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/53/1
-海韻花園;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/52X/1
-海韻花園;銅鑼灣;O;https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002618/952
-碧堤半島;屯門;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/B47C12A965D7B481/52X/1
-碧堤半島;元朗;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/B47C12A965D7B481/53/1
-碧堤半島;置樂花園;I;https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002619/952`;
+`海韻;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/234A/1
+海韻;荃灣;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/234B/1
+海韻;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/53/1
+海韻;旺角;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/52X/1
+海韻;銅鑼灣;O;https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002618/952
+深慈街;機場;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/5A2A66038B409879/A38/1
+碧堤;屯門;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/B47C12A965D7B481/52X/1
+碧堤;元朗;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/B47C12A965D7B481/53/1
+碧堤;置樂;I;https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002619/952`;
 
         // Initialize Application
         window.onload = function() {
@@ -159,7 +160,7 @@
             startAutoRefresh();
         };
 
-        // Auto Refresh Engine
+        // Auto Refresh Engine (10 Seconds)
         function startAutoRefresh() {
             stopAutoRefresh();
             secondsRemaining = REFRESH_INTERVAL;
@@ -191,9 +192,9 @@
             startAutoRefresh();
         }
 
-        // Navigation
+        // Navigation Management
         function goToSetup() {
-            stopAutoRefresh(); // Suspend background timers during user setup
+            stopAutoRefresh(); // Pause timer while editing
             document.getElementById('homePage').classList.remove('active');
             document.getElementById('setupPage').classList.add('active');
             
@@ -215,7 +216,7 @@
             startAutoRefresh();
         }
 
-        // Configuration Parsing & Validation
+        // Setup Page Validation Engine
         function parseAndValidateLine(line) {
             const parts = line.split(';').map(p => p.trim());
             if (parts.length !== 4) return { valid: false, error: 'Must contain exactly 3 semicolons (O;S;D;U)' };
@@ -267,7 +268,7 @@
             goToHome();
         }
 
-        // Data Retrieval & Computation
+        // API Fetching and Display Processing
         async function fetchETAs() {
             const tableBody = document.getElementById('etaTableBody');
             const rawConfig = localStorage.getItem(STORAGE_KEY) || '';
@@ -301,34 +302,30 @@
 
                     const now = new Date();
 
-                    // Calculate eta1_diff (eta_seq = 1)
+                    // Retrieve route from the response payload
+                    if (dataList.length > 0 && dataList[0].route) {
+                        route = dataList[0].route;
+                    }
+
+                    // Process eta_seq = 1
                     const item1 = dataList.find(d => d.eta_seq === 1);
-                    if (item1) {
-                        route = item1.route || '-';
-                        if (item1.eta) {
-                            const etaDate = new Date(item1.eta);
-                            eta1_diff = Math.max(0, Math.round((etaDate - now) / 60000)) + ' mins';
-                        }
+                    if (item1 && item1.eta) {
+                        const etaDate = new Date(item1.eta);
+                        eta1_diff = Math.max(0, Math.round((etaDate - now) / 60000)) + ' mins';
                     }
 
-                    // Calculate eta2_diff (eta_seq = 2)
+                    // Process eta_seq = 2
                     const item2 = dataList.find(d => d.eta_seq === 2);
-                    if (item2) {
-                        if (route === '-' && item2.route) route = item2.route;
-                        if (item2.eta) {
-                            const etaDate = new Date(item2.eta);
-                            eta2_diff = Math.max(0, Math.round((etaDate - now) / 60000)) + ' mins';
-                        }
+                    if (item2 && item2.eta) {
+                        const etaDate = new Date(item2.eta);
+                        eta2_diff = Math.max(0, Math.round((etaDate - now) / 60000)) + ' mins';
                     }
 
-                    // Calculate eta3_diff (eta_seq = 3)
+                    // Process eta_seq = 3
                     const item3 = dataList.find(d => d.eta_seq === 3);
-                    if (item3) {
-                        if (route === '-' && item3.route) route = item3.route;
-                        if (item3.eta) {
-                            const etaDate = new Date(item3.eta);
-                            eta3_diff = Math.max(0, Math.round((etaDate - now) / 60000)) + ' mins';
-                        }
+                    if (item3 && item3.eta) {
+                        const etaDate = new Date(item3.eta);
+                        eta3_diff = Math.max(0, Math.round((etaDate - now) / 60000)) + ' mins';
                     }
 
                     row.innerHTML = `
