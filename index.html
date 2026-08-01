@@ -35,27 +35,16 @@
         .btn:hover {
             background-color: #0056b3;
         }
-        .btn-secondary {
-            background-color: #6c757d;
+        .controls-row {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
         }
-        .btn-secondary:hover {
-            background-color: #545b62;
-        }
-        .page {
-            display: none;
-        }
-        .active {
-            display: block;
-        }
-        textarea {
-            width: 100%;
-            height: 280px;
-            font-family: monospace;
-            padding: 10px;
-            box-sizing: border-box;
-            border: 1px solid #ccc;
-            border-radius: 4px;
-            margin-bottom: 10px;
+        .timer-display {
+            font-size: 16px;
+            font-weight: bold;
+            color: #333;
+            vertical-align: middle;
         }
         table {
             width: 100%;
@@ -71,98 +60,59 @@
         th {
             background-color: #f2f2f2;
         }
-        .error-msg {
-            color: #d9534f;
-            margin-top: 10px;
-            white-space: pre-wrap;
-        }
         .loading {
             color: #666;
             font-style: italic;
-        }
-        .timer-display {
-            font-size: 14px;
-            color: #333;
-            font-weight: normal;
-            vertical-align: middle;
-        }
-        .controls-row {
-            display: flex;
-            align-items: center;
-            margin-bottom: 15px;
         }
     </style>
 </head>
 <body>
 
     <!-- HOME PAGE -->
-    <div id="homePage" class="page active">
-        <h1>巴士到站時間 Release 1.1</h1>
-        <hr>
-        <div class="controls-row">
-            <button class="btn" onclick="goToSetup()">Set up</button>
-            <button class="btn btn-secondary" onclick="manualRefresh()">Refresh</button>
-            <span id="countdownDisplay" class="timer-display">10</span>
-        </div>
-
-        <div id="etaDisplay">
-            <table>
-                <thead>
-                    <tr>
-                        <th>路線</th>
-                        <th>終站</th>
-                        <th>首班車</th>
-                        <th>次班車</th>
-                        <th>三班車(分鐘)</th>
-                    </tr>
-                </thead>
-                <tbody id="etaTableBody">
-                    <tr><td colspan="5" class="loading">No configuration loaded. Click 'Set up' to add API instructions.</td></tr>
-                </tbody>
-            </table>
-        </div>
+    <h1>巴士到站時間 Release 1.1</h1>
+    <hr>
+    
+    <div class="controls-row">
+        <button class="btn" onclick="manualRefresh()">Refresh</button>
+        <span id="countdownDisplay" class="timer-display">10</span>
     </div>
 
-    <!-- SETUP PAGE -->
-    <div id="setupPage" class="page">
-        <h1>Set Up</h1>
-        <hr>
-        <p>Enter instruction lines in the format: <code>O;S;D;U</code></p>
-        <textarea id="apiConfigInput" placeholder="海韻;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/..."></textarea>
-        
-        <div id="validationError" class="error-msg"></div>
-
-        <div id="setupActions" style="margin-top: 10px;">
-            <button id="btnConfirm" class="btn" onclick="handleConfirm()">Confirm</button>
-            <button id="btnEdit" class="btn btn-secondary" onclick="handleEdit()" style="display: none;">Edit</button>
-            <button id="btnSave" class="btn" onclick="handleSave()" style="display: none;">Save</button>
-        </div>
+    <div id="etaDisplay">
+        <table>
+            <thead>
+                <tr>
+                    <th>路線</th>
+                    <th>終站</th>
+                    <th>首班車</th>
+                    <th>次班車</th>
+                    <th>三班車(分鐘)</th>
+                </tr>
+            </thead>
+            <tbody id="etaTableBody">
+                <tr><td colspan="5" class="loading">Loading ETA data...</td></tr>
+            </tbody>
+        </table>
     </div>
 
     <script>
-        const STORAGE_KEY = 'bus_eta_config_v1.1';
         const REFRESH_INTERVAL = 10; // seconds
-
         let countdownInterval = null;
         let secondsRemaining = REFRESH_INTERVAL;
 
-        // Default set of API instructions
-        const defaultInstructions = 
-`海韻;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/234A/1
-海韻;荃灣;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/234B/1
-海韻;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/53/1
-海韻;旺角;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/52X/1
-海韻;銅鑼灣;O;https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002618/952
-深慈街;機場;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/5A2A66038B409879/A38/1
-碧堤;屯門;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/B47C12A965D7B481/52X/1
-碧堤;元朗;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/B47C12A965D7B481/53/1
-碧堤;置樂;I;https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002619/952`;
+        // Hardcoded list of API instructions (O;S;D;U)
+        const apiInstructions = [
+            "海韻;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/234A/1",
+            "海韻;荃灣;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/234B/1",
+            "海韻;荃灣;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/53/1",
+            "海韻;旺角;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/ED9E5ACF98190E5C/52X/1",
+            "海韻;銅鑼灣;O;https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002618/952",
+            "深慈街;機場;O;https://data.etabus.gov.hk/v1/transport/kmb/eta/5A2A66038B409879/A38/1",
+            "碧堤;屯門;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/B47C12A965D7B481/52X/1",
+            "碧堤;元朗;I;https://data.etabus.gov.hk/v1/transport/kmb/eta/B47C12A965D7B481/53/1",
+            "碧堤;置樂;I;https://rt.data.gov.hk/v2/transport/citybus/eta/CTB/002619/952"
+        ];
 
-        // Initialize Application
         window.onload = function() {
-            if (!localStorage.getItem(STORAGE_KEY)) {
-                localStorage.setItem(STORAGE_KEY, defaultInstructions);
-            }
             fetchETAs();
             startAutoRefresh();
         };
@@ -199,100 +149,23 @@
             startAutoRefresh();
         }
 
-        // Navigation Management
-        function goToSetup() {
-            stopAutoRefresh(); // Pause timer while editing
-            document.getElementById('homePage').classList.remove('active');
-            document.getElementById('setupPage').classList.add('active');
-            
-            const savedData = localStorage.getItem(STORAGE_KEY) || defaultInstructions;
-            const textarea = document.getElementById('apiConfigInput');
-            textarea.value = savedData;
-            textarea.disabled = false;
-
-            document.getElementById('validationError').innerText = '';
-            document.getElementById('btnConfirm').style.display = 'inline-block';
-            document.getElementById('btnEdit').style.display = 'none';
-            document.getElementById('btnSave').style.display = 'none';
-        }
-
-        function goToHome() {
-            document.getElementById('setupPage').classList.remove('active');
-            document.getElementById('homePage').classList.add('active');
-            fetchETAs();
-            startAutoRefresh();
-        }
-
-        // Setup Page Validation Engine
-        function parseAndValidateLine(line) {
+        // Helper function to parse O;S;D;U lines
+        function parseInstructionLine(line) {
             const parts = line.split(';').map(p => p.trim());
-            if (parts.length !== 4) return { valid: false, error: 'Must contain exactly 3 semicolons (O;S;D;U)' };
-            
-            const [O, S, D, U] = parts;
-            if (O.length < 1) return { valid: false, error: 'Origin (O) must contain at least 1 character' };
-            if (S.length < 1) return { valid: false, error: 'Destination (S) must contain at least 1 character' };
-            if (D !== 'O' && D !== 'I') return { valid: false, error: 'Direction (D) must be either "O" or "I"' };
-            if (!U.startsWith('https://')) return { valid: false, error: 'URL (U) must start with https://' };
-
-            return { valid: true, parsed: { O, S, D, U } };
-        }
-
-        function handleConfirm() {
-            const textarea = document.getElementById('apiConfigInput');
-            const lines = textarea.value.split('\n').filter(line => line.trim().length > 0);
-            const errors = [];
-
-            lines.forEach((line, index) => {
-                const res = parseAndValidateLine(line);
-                if (!res.valid) {
-                    errors.push(`Line ${index + 1}: ${res.error}`);
-                }
-            });
-
-            const errContainer = document.getElementById('validationError');
-            if (errors.length > 0) {
-                errContainer.innerText = errors.join('\n');
-            } else {
-                errContainer.innerText = '';
-                textarea.disabled = true;
-                document.getElementById('btnConfirm').style.display = 'none';
-                document.getElementById('btnEdit').style.display = 'inline-block';
-                document.getElementById('btnSave').style.display = 'inline-block';
-            }
-        }
-
-        function handleEdit() {
-            const textarea = document.getElementById('apiConfigInput');
-            textarea.disabled = false;
-            document.getElementById('btnConfirm').style.display = 'inline-block';
-            document.getElementById('btnEdit').style.display = 'none';
-            document.getElementById('btnSave').style.display = 'none';
-        }
-
-        function handleSave() {
-            const textarea = document.getElementById('apiConfigInput');
-            localStorage.setItem(STORAGE_KEY, textarea.value);
-            goToHome();
+            if (parts.length !== 4) return null;
+            return { O: parts[0], S: parts[1], D: parts[2], U: parts[3] };
         }
 
         // API Fetching and Display Processing
         async function fetchETAs() {
             const tableBody = document.getElementById('etaTableBody');
-            const rawConfig = localStorage.getItem(STORAGE_KEY) || '';
-            const lines = rawConfig.split('\n').filter(line => line.trim().length > 0);
-
-            if (lines.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="5">No instructions found. Please click "Set up" to configure.</td></tr>';
-                return;
-            }
-
             const fragment = document.createDocumentFragment();
 
-            for (const line of lines) {
-                const validation = parseAndValidateLine(line);
-                if (!validation.valid) continue;
+            for (const line of apiInstructions) {
+                const parsed = parseInstructionLine(line);
+                if (!parsed) continue;
 
-                const { S, U } = validation.parsed;
+                const { S, U } = parsed;
                 const row = document.createElement('tr');
 
                 try {
@@ -309,7 +182,7 @@
 
                     const now = new Date();
 
-                    // Retrieve route from response
+                    // Retrieve route from the API response payload
                     if (dataList.length > 0 && dataList[0].route) {
                         route = dataList[0].route;
                     }
@@ -322,7 +195,7 @@
                     }
 
                     // Process eta_seq = 2
-                    const item2 = dataList.find(d => d.eta_seq === 2);
+                    const item2 = dataList.find(d => d.eta_seq === 3 || d.eta_seq === 2);
                     if (item2 && item2.eta) {
                         const etaDate = new Date(item2.eta);
                         eta2_diff = Math.max(0, Math.round((etaDate - now) / 60000));
